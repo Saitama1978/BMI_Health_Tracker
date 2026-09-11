@@ -5,23 +5,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
-void main() {
-  runApp(const HealthSuiteApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  bool isDark = prefs.getBool('isDarkMode') ?? false;
+
+  runApp(HealthSuiteApp(isDarkInit: isDark));
 }
 
 class HealthSuiteApp extends StatefulWidget {
-  const HealthSuiteApp({super.key});
+  final bool isDarkInit;
+  const HealthSuiteApp({super.key, required this.isDarkInit});
 
   @override
   State<HealthSuiteApp> createState() => _HealthSuiteAppState();
 }
 
 class _HealthSuiteAppState extends State<HealthSuiteApp> {
-  ThemeMode _themeMode = ThemeMode.light;
+  late ThemeMode _themeMode;
 
-  void _toggleTheme() {
+  @override
+  void initState() {
+    super.initState();
+    _themeMode = widget.isDarkInit ? ThemeMode.dark : ThemeMode.light;
+  }
+
+  void _toggleTheme() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+      if (_themeMode == ThemeMode.light) {
+        _themeMode = ThemeMode.dark;
+        prefs.setBool('isDarkMode', true);
+      } else {
+        _themeMode = ThemeMode.light;
+        prefs.setBool('isDarkMode', false);
+      }
     });
   }
 
@@ -35,14 +53,19 @@ class _HealthSuiteAppState extends State<HealthSuiteApp> {
         brightness: Brightness.light,
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: const Color(0xFFF4F7F6),
+        cardColor: Colors.white,
         useMaterial3: true,
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF121212),
+        cardColor: const Color(0xFF1E1E1E),
         useMaterial3: true,
       ),
-      home: MainHomeScreen(onToggleTheme: _toggleTheme, isDarkMode: _themeMode == ThemeMode.dark),
+      home: MainHomeScreen(
+        onToggleTheme: _toggleTheme, 
+        isDarkMode: _themeMode == ThemeMode.dark
+      ),
     );
   }
 }
@@ -51,8 +74,11 @@ class MainHomeScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   final bool isDarkMode;
 
-  const MainHomeScreen({super.key, required onToggleTheme, required this.isDarkMode})
-      : onToggleTheme = onToggleTheme;
+  const MainHomeScreen({
+    super.key, 
+    required this.onToggleTheme, 
+    required this.isDarkMode
+  });
 
   @override
   State<MainHomeScreen> createState() => _MainHomeScreenState();
@@ -61,7 +87,7 @@ class MainHomeScreen extends StatefulWidget {
 class _MainHomeScreenState extends State<MainHomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _currentProfile = "Renante Fullo";
-  List<String> _profiles = ["Renante Fullo", "Guest"];
+  final List<String> _profiles = ["Renante Fullo", "Guest"];
 
   @override
   void initState() {
@@ -86,16 +112,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> with SingleTickerProvid
           IconButton(
             icon: Icon(widget.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),
             onPressed: widget.onToggleTheme,
+            tooltip: 'Toggle Dark Mode',
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           tabs: const [
-            Tab(icon: Icon(Icons.calculate), text: 'Calculators'),
-            Tab(icon: Icon(Icons.timer), text: 'Fasting & Sleep'),
-            Tab(icon: Icon(Icons.show_chart), text: 'Progress'),
-            Tab(icon: Icon(Icons.access_time_filled), text: 'Body Clock'),
+            Tab(icon: Icon(Icons.calculate_outlined), text: 'Calculators'),
+            Tab(icon: Icon(Icons.timer_outlined), text: 'Fasting & Sleep'),
+            Tab(icon: Icon(Icons.show_chart_outlined), text: 'Progress'),
+            Tab(icon: Icon(Icons.access_time_outlined), text: 'Body Clock'),
           ],
         ),
       ),
@@ -133,12 +160,10 @@ class CalculatorTab extends StatefulWidget {
 class _CalculatorTabState extends State<CalculatorTab> {
   final _weightCtrl = TextEditingController();
   final _heightCtrl = TextEditingController();
-  final _waistCtrl = TextEditingController();
-  final _neckCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
 
-  String _gender = 'male';
-  String _goal = 'maintain';
+  final String _gender = 'male';
+  final String _goal = 'maintain';
   String _resultText = '';
 
   void _calculate() async {
@@ -185,13 +210,17 @@ class _CalculatorTabState extends State<CalculatorTab> {
         TextField(controller: _weightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight (kg)')),
         TextField(controller: _heightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Height (cm)')),
         TextField(controller: _ageCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Age (Edad)')),
-        const SizedBox(height: 10),
+        const SizedBox(height: 15),
         ElevatedButton(onPressed: _calculate, child: const Text('Calculate Metrics')),
         if (_resultText.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(top: 15),
             padding: const EdgeInsets.all(12),
-            color: Colors.blue.withOpacity(0.1),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withOpacity(0.5))
+            ),
             child: Text(_resultText, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           )
       ],
@@ -234,13 +263,13 @@ class _FastingSleepTabState extends State<FastingSleepTab> {
         const Text("Intermittent Fasting Live Tracker", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Row(
-          mainAxisAlignment: MainSpaceAround.toList().isNotEmpty ? MainAxisAlignment.spaceEvenly : MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             ElevatedButton(onPressed: () => _startFast(16), child: const Text("Start 16:8")),
             ElevatedButton(onPressed: () => _startFast(18), child: const Text("Start 18:6")),
           ],
         ),
-        const SizedBox(height: 15),
+        const SizedBox(height: 20),
         Text(
           _remaining == Duration.zero
               ? "No Active Fasting"
@@ -277,7 +306,7 @@ class ProgressTab extends StatelessWidget {
       future: _getChartData(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("Walang data na naitala."));
+          return const Center(child: Text("Walang data na naitala. Mag-compute muna sa Calculators tab."));
         }
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -329,11 +358,16 @@ class BodyClockTab extends StatelessWidget {
         bool active = _isActive(item['start'], item['end'], currentHour);
 
         return Card(
-          color: active ? Colors.amber.withOpacity(0.3) : null,
+          color: active ? Colors.amber.withOpacity(0.25) : null,
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           child: ListTile(
-            title: Text("${item['organ']} ${active ? '🔥 ACTIVE NOW' : ''}",
-                style: TextStyle(fontWeight: active ? FontWeight.bold : FontWeight.normal, color: active ? Colors.orange : null)),
+            title: Text(
+              "${item['organ']} ${active ? '🔥 ACTIVE NOW' : ''}",
+              style: TextStyle(
+                fontWeight: active ? FontWeight.bold : FontWeight.normal, 
+                color: active ? Colors.orange : null
+              )
+            ),
             subtitle: Text("${item['time']}\nAction: ${item['act']}"),
             isThreeLine: true,
           ),
