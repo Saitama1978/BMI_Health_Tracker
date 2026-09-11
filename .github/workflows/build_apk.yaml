@@ -34,8 +34,8 @@ jobs:
       - name: 5. Install Dependencies
         run: flutter pub get
 
-      - name: 6. Generate Custom App Icons
-        run: flutter pub run flutter_launcher_icons
+      - name: 6. Apply Custom App Icon
+        run: dart run flutter_launcher_icons
 
       - name: 7. Build APK Release
         run: flutter build apk --release
