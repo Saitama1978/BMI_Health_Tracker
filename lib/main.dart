@@ -166,6 +166,39 @@ class _CalculatorTabState extends State<CalculatorTab> {
   final String _goal = 'maintain';
   String _resultText = '';
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedInputs();
+    
+    // Auto-save habang nagta-type
+    _weightCtrl.addListener(() => _saveInput('weight', _weightCtrl.text));
+    _heightCtrl.addListener(() => _saveInput('height', _heightCtrl.text));
+    _ageCtrl.addListener(() => _saveInput('age', _ageCtrl.text));
+  }
+
+  @override
+  void didUpdateWidget(covariant CalculatorTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile != widget.profile) {
+      _loadSavedInputs();
+    }
+  }
+
+  void _loadSavedInputs() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _weightCtrl.text = prefs.getString('input_weight_${widget.profile}') ?? '';
+      _heightCtrl.text = prefs.getString('input_height_${widget.profile}') ?? '';
+      _ageCtrl.text = prefs.getString('input_age_${widget.profile}') ?? '';
+    });
+  }
+
+  void _saveInput(String key, String value) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('input_${key}_${widget.profile}', value);
+  }
+
   void _calculate() async {
     double w = double.tryParse(_weightCtrl.text) ?? 0;
     double h = double.tryParse(_heightCtrl.text) ?? 0;
@@ -200,12 +233,41 @@ class _CalculatorTabState extends State<CalculatorTab> {
     await prefs.setStringList('history_${widget.profile}', history);
   }
 
+  void _clearData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('history_${widget.profile}');
+    await prefs.remove('input_weight_${widget.profile}');
+    await prefs.remove('input_height_${widget.profile}');
+    await prefs.remove('input_age_${widget.profile}');
+    setState(() {
+      _weightCtrl.clear();
+      _heightCtrl.clear();
+      _ageCtrl.clear();
+      _resultText = '';
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Na-clear na ang lahat ng inputs at history!')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text("Master Body Metrics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text("Master Body Metrics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            TextButton.icon(
+              onPressed: _clearData,
+              icon: const Icon(Icons.delete_forever, color: Colors.red, size: 18),
+              label: const Text("Clear All", style: TextStyle(color: Colors.red)),
+            )
+          ],
+        ),
         const SizedBox(height: 10),
         TextField(controller: _weightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight (kg)')),
         TextField(controller: _heightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Height (cm)')),
@@ -283,13 +345,18 @@ class _FastingSleepTabState extends State<FastingSleepTab> {
 }
 
 // ==================== TAB 3: PROGRESS ====================
-class ProgressTab extends StatelessWidget {
+class ProgressTab extends StatefulWidget {
   final String profile;
   const ProgressTab({super.key, required this.profile});
 
+  @override
+  State<ProgressTab> createState() => _ProgressTabState();
+}
+
+class _ProgressTabState extends State<ProgressTab> {
   Future<List<FlSpot>> _getChartData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> history = prefs.getStringList('history_$profile') ?? [];
+    List<String> history = prefs.getStringList('history_${widget.profile}') ?? [];
     List<FlSpot> spots = [];
     for (int i = 0; i < history.length; i++) {
       var parts = history[i].split(',');
@@ -298,6 +365,17 @@ class ProgressTab extends StatelessWidget {
       }
     }
     return spots;
+  }
+
+  void _clearHistory() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('history_${widget.profile}');
+    setState(() {});
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Na-delete na ang history data!')),
+      );
+    }
   }
 
   @override
@@ -310,10 +388,28 @@ class ProgressTab extends StatelessWidget {
         }
         return Padding(
           padding: const EdgeInsets.all(16),
-          child: LineChart(
-            LineChartData(
-              lineBarsData: [LineChartBarData(spots: snapshot.data!, isCurved: true, color: Colors.blue)],
-            ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Weight Progress Chart", style: TextStyle(fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: _clearHistory,
+                    tooltip: "Clear Progress History",
+                  )
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: LineChart(
+                  LineChartData(
+                    lineBarsData: [LineChartBarData(spots: snapshot.data!, isCurved: true, color: Colors.blue)],
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
