@@ -29,7 +29,7 @@ jobs:
 
       - name: 4. Generate Android Project Structure
         run: |
-          flutter create --org com.renantefullo . --platforms android
+          flutter create --project-name bmi_health_tracker --org com.renantefullo . --platforms android
 
       - name: 5. Install Dependencies
         run: flutter pub get
